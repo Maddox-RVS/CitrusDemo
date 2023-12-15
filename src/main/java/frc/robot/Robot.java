@@ -1,8 +1,15 @@
 package frc.robot;
 
-import edu.wpi.first.wpilibj.DataLogManager;
+import java.util.HashMap;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -11,17 +18,19 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.commands.auto.Autos;
 import frc.robot.util.ShuffleboardApi;
 
-public class Robot extends TimedRobot {
+public class Robot extends LoggedRobot {
 
     private Command autoCmd;
+    @SuppressWarnings("unused")
+    private final RobotContainer robotContainer = new RobotContainer();
     private Autos.AutoRoutines autoRoutine;
-    private Alliance alliance = Alliance.Invalid;
+    private Optional<Alliance> alliance = Optional.empty();
     private final SendableChooser<Autos.AutoRoutines> autoRoutineChooser = new SendableChooser<>();
 
     @Override
     public void robotInit() {
-        RobotContainer.RobotContainerInit();
-
+        setupAkit();
+        
         Autos.AutoRoutines[] autoRoutines = Autos.AutoRoutines.values();
         for (Autos.AutoRoutines autoRoutine : autoRoutines) {
             if (autoRoutine == Autos.AutoRoutines.NOTHING) {
@@ -34,10 +43,6 @@ public class Robot extends TimedRobot {
         SmartDashboard.putString("AutoCommand", autoCmd == null ? "null" : autoCmd.getName());
         ShuffleboardApi.getTab("Autos")
             .addSendable("Autonomous Routine", autoRoutineChooser);
-
-        DataLogManager.start();
-        DriverStation.startDataLog(DataLogManager.getLog());
-        DataLogManager.logNetworkTables(true);
     }
 
     @Override
@@ -55,11 +60,13 @@ public class Robot extends TimedRobot {
     public void disabledPeriodic() {
         var selectedRoutine = autoRoutineChooser.getSelected();
         var currAlliance = DriverStation.getAlliance();
-        if (selectedRoutine != autoRoutine || alliance != currAlliance) {
-            autoRoutine = selectedRoutine;
-            alliance = currAlliance;
-            autoCmd = autoRoutine.getCommand();
-            SmartDashboard.putString("AutoCommand", autoCmd == null ? "null" : autoCmd.getName());
+        if (currAlliance.isPresent() && alliance.isPresent()) {
+            if (selectedRoutine != autoRoutine || alliance.get() != currAlliance.get()) {
+                autoRoutine = selectedRoutine;
+                alliance = currAlliance;
+                autoCmd = autoRoutine.getCommand();
+                SmartDashboard.putString("AutoCommand", autoCmd == null ? "null" : autoCmd.getName());
+            }
         }
     }
 
@@ -98,5 +105,58 @@ public class Robot extends TimedRobot {
 
     @Override
     public void simulationPeriodic() {
+    }
+
+    private void setupAkit() {
+        Logger.recordMetadata("Robot", "CitrusCircus");
+        Logger.recordMetadata("RuntimeType", getRuntimeType().toString());
+        Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
+        Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
+        Logger.recordMetadata("GitSHA", BuildConstants.GIT_SHA);
+        Logger.recordMetadata("GitDate", BuildConstants.GIT_DATE);
+        Logger.recordMetadata("GitBranch", BuildConstants.GIT_BRANCH);
+        switch (BuildConstants.DIRTY) {
+        case 0:
+            Logger.recordMetadata("GitDirty", "All changes committed");
+            break;
+        case 1:
+            Logger.recordMetadata("GitDirty", "Uncomitted changes");
+            break;
+        default:
+            Logger.recordMetadata("GitDirty", "Unknown");
+            break;
+        }
+
+        if (Robot.isReal()) {
+            Logger.addDataReceiver(new WPILOGWriter("/media/sda1/robotlogs/"));
+        }
+        Logger.addDataReceiver(new NT4Publisher());
+        Logger.start();
+
+        HashMap<String, Integer> commandCounts = new HashMap<>();
+        BiConsumer<Command, Boolean> logCommandFunction =
+            (Command command, Boolean active) -> {
+            String name = command.getName();
+            int count = commandCounts.getOrDefault(name, 0) + (active ? 1 : -1);
+            commandCounts.put(name, count);
+            Logger.recordOutput(
+                "CommandsUnique/" + name + "_" + Integer.toHexString(command.hashCode()), active);
+            Logger.recordOutput("CommandsAll/" + name, count > 0);
+            };
+        CommandScheduler.getInstance()
+            .onCommandInitialize(
+                (Command command) -> {
+                logCommandFunction.accept(command, true);
+                });
+        CommandScheduler.getInstance()
+            .onCommandFinish(
+                (Command command) -> {
+                logCommandFunction.accept(command, false);
+                });
+        CommandScheduler.getInstance()
+            .onCommandInterrupt(
+                (Command command) -> {
+                logCommandFunction.accept(command, false);
+                });
     }
 }

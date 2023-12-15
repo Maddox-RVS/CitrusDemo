@@ -3,7 +3,6 @@ package frc.robot.commands.superstructure;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandBase;
 import frc.robot.GamepieceMode;
 import frc.robot.commands.Helpers;
 import frc.robot.commands.superstructure.StateManager.CmdTransitionState;
@@ -18,7 +17,7 @@ public class SuperstructureCommands {
             DoubleSupplier elevator,
             DoubleSupplier pivot,
             DoubleSupplier wrist,
-            DoubleSupplier intake) {
+            DoubleSupplier endEffector) {
         var dbElevator = Helpers.deadbandSupplier(elevator, 0.1);
         var dbPivot = Helpers.deadbandSupplier(pivot, 0.1);
         var dbWrist = Helpers.deadbandSupplier(wrist, 0.1);
@@ -28,7 +27,7 @@ public class SuperstructureCommands {
                     dbWrist.getAsDouble() / 2.0,
                     dbPivot.getAsDouble() / 2.0,
                     dbElevator.getAsDouble() / 2.0,
-                    intake.getAsDouble());
+                    endEffector.getAsDouble());
         });
     }
 
@@ -43,10 +42,10 @@ public class SuperstructureCommands {
      * The decided proxy command can only be changed by calling
      * {@link #initialize()} again.
      */
-    public static class TransitionToPlace extends CommandBase {
+    public static class TransitionToPlace extends Command {
         private final SuperStructure superStructure;
         private CmdTransitionState placeCmd;
-        private Boolean canFinish = false;
+        private boolean canFinish = false;
 
         public TransitionToPlace(final SuperStructure superStructure) {
             this.superStructure = superStructure;
@@ -122,7 +121,7 @@ public class SuperstructureCommands {
      * the decided proxy command can only be changed by calling
      * {@link #initialize()} again.
      */
-    public static class TransitionToPickup extends CommandBase {
+    public static class TransitionToPickup extends Command {
         private final SuperStructure superStructure;
         private Command placeCmd;
 

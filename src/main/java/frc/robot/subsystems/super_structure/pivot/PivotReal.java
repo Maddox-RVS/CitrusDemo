@@ -1,21 +1,18 @@
 package frc.robot.subsystems.super_structure.pivot;
 
-import javax.net.ssl.KeyStoreBuilderParameters;
+import org.littletonrobotics.junction.Logger;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
-import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.CoastOut;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicDutyCycle;
-import com.ctre.phoenix6.controls.StaticBrake;
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
-import edu.wpi.first.math.filter.LinearFilter;
 import frc.robot.Constants.kSuperStructure;
 import frc.robot.Constants.kSuperStructure.kPivot;
 import frc.robot.util.ShuffleboardApi.ShuffleEntryContainer;
@@ -26,16 +23,16 @@ public class PivotReal implements Pivot {
     private final TalonFX leaderMotor;
     /** Right */
     private final TalonFX followerMotor;
+
     private final Pigeon2 gyro;
 
-    private final StatusSignal<Double> motorRots, motorVelo, motorAmps, motorVolts;
+    private final StatusSignal<Double> motorRots, motorVelo, motorVolts;
+    private final StatusSignal<Double> leftMotorAmps, rightMotorAmps, leftMotorTemp, rightMotorTemp;
     private final StatusSignal<Double> gyroPitch;
 
-    private final LinearFilter ampWindow = LinearFilter.movingAverage(25);
-    private Double ampWindowVal = 0.0;
+    private final PivotInputs inputs;
 
-    private Boolean isHomed = false;
-    private Double cachedPivotDegrees;
+    private boolean isHomed = false;
 
     private Double mechDegreesToMotorRots(Double mechanismDegrees) {
         return (mechanismDegrees / 360.0) / kPivot.MOTOR_TO_MECHANISM_RATIO;
@@ -57,13 +54,19 @@ public class PivotReal implements Pivot {
         followerMotor.setControl(
                 new Follower(kPivot.LEFT_MOTOR_ID, true));
 
-        leaderMotor.setRotorPosition(mechDegreesToMotorRots(getPivotDegreesPigeon()));
-        cachedPivotDegrees = getPivotDegreesPigeon();
+        inputs = new PivotInputs(gyroPitch.getValue() - kPivot.PIGEON_OFFSET);
+        leaderMotor.setPosition(mechDegreesToMotorRots(getPivotDegreesPigeon()));
 
         motorRots = leaderMotor.getRotorPosition();
         motorVelo = leaderMotor.getRotorVelocity();
-        motorAmps = leaderMotor.getStatorCurrent();
+        rightMotorAmps = leaderMotor.getStatorCurrent();
+        leftMotorAmps = followerMotor.getStatorCurrent();
         motorVolts = leaderMotor.getSupplyVoltage();
+
+        rightMotorTemp = leaderMotor.getDeviceTemp();
+        leftMotorTemp = followerMotor.getDeviceTemp();
+        rightMotorTemp.setUpdateFrequency(4);
+        leftMotorTemp.setUpdateFrequency(4);
     }
 
     private TalonFXConfiguration getMotorConfig() {
@@ -87,7 +90,7 @@ public class PivotReal implements Pivot {
     }
 
     @Override
-    public Boolean setPivotDegrees(Double degrees) {
+    public boolean setPivotDegrees(Double degrees) {
         isHomed = false;
         var posControlRequest = new MotionMagicDutyCycle(mechDegreesToMotorRots(degrees));
         this.leaderMotor.setControl(posControlRequest);
@@ -108,21 +111,20 @@ public class PivotReal implements Pivot {
 
     @Override
     public Double getPivotDegrees() {
-        return cachedPivotDegrees;
+        return inputs.degrees;
     }
 
     private Double getPivotDegreesPigeon() {
-        return gyroPitch.refresh().getValue() - 1.85;
+        return inputs.gyroPitchDegrees - kPivot.PIGEON_OFFSET;
     }
 
     private void seedPivot() {
         var pigeonDegrees = mechDegreesToMotorRots(getPivotDegreesPigeon());
-        leaderMotor.setRotorPosition(pigeonDegrees);
-        cachedPivotDegrees = pigeonDegrees;
+        leaderMotor.setPosition(pigeonDegrees);
     }
 
     @Override
-    public Boolean homeMechanism(boolean force) {
+    public boolean homeMechanism(boolean force) {
         if (force) {
             isHomed = false;
         }
@@ -138,7 +140,10 @@ public class PivotReal implements Pivot {
             isHomed = true;
             return isHomed;
         }
-        if (motorAmps.getValue() > kPivot.CURRENT_PEAK_FOR_HOME) {
+        if (
+            inputs.leftAmps > kPivot.CURRENT_PEAK_FOR_HOME
+            || inputs.rightAmps > kPivot.CURRENT_PEAK_FOR_HOME
+        ) {
             this.stopMechanism();
             seedPivot();
             isHomed = true;
@@ -148,40 +153,36 @@ public class PivotReal implements Pivot {
     }
 
     @Override
-    public Double getRecentCurrent() {
-        return ampWindowVal;
-    }
-
-    @Override
-    public void brake(Boolean toBrake) {
-        var motorOutputCfg = new MotorOutputConfigs();
-        motorOutputCfg.NeutralMode = toBrake ? NeutralModeValue.Brake : NeutralModeValue.Coast;
-        motorOutputCfg.Inverted = kPivot.INVERTED ? InvertedValue.Clockwise_Positive
-                : InvertedValue.CounterClockwise_Positive;
-        leaderMotor.getConfigurator().apply(motorOutputCfg);
-        if (toBrake) {
-            leaderMotor.setControl(new StaticBrake());
-        } else {
-            leaderMotor.setControl(new CoastOut());
-        }
-    }
-
-    @Override
     public void setupShuffleboard(ShuffleEntryContainer tab) {
-        tab.addDouble("Pivot Motor Rots", motorRots::getValue);
-        tab.addDouble("Pivot Motor Velo", motorVelo::getValue);
-        tab.addDouble("Pivot Motor Amps", motorAmps::getValue);
-        tab.addDouble("Pivot Motor Volts", motorVolts::getValue);
-        tab.addDouble("Pivot Degrees Gyro", this::getPivotDegreesPigeon);
-        tab.addBoolean("Pivot Homed", () -> isHomed);
+        // tab.addDouble("Pivot Motor Rots", motorRots::getValue);
+        // tab.addDouble("Pivot Motor Velo", motorVelo::getValue);
+        // tab.addDouble("Pivot Motor Amps", motorAmps::getValue);
+        // tab.addDouble("Pivot Motor Volts", motorVolts::getValue);
+        // tab.addDouble("Pivot Degrees Gyro", this::getPivotDegreesPigeon);
+        // tab.addBoolean("Pivot Homed", () -> isHomed);
     }
 
     @Override
     public void periodic() {
-        motorRots.refresh(); motorVelo.refresh();
-        motorAmps.refresh(); motorVolts.refresh();
+        BaseStatusSignal.refreshAll(
+            motorRots, motorVelo,
+            motorVolts, gyroPitch,
+            leftMotorAmps, rightMotorAmps,
+            leftMotorTemp, rightMotorTemp
+        );
 
-        cachedPivotDegrees = motorRotsToMechDegrees(motorRots.getValue());
-        ampWindowVal = ampWindow.calculate(motorAmps.getValue());
+        inputs.degrees = motorRotsToMechDegrees(motorRots.getValue());
+        inputs.degreesPerSec = motorRotsToMechDegrees(motorVelo.getValue());
+        inputs.gyroPitchDegrees = gyroPitch.getValue();
+        inputs.volts = motorVolts.getValue();
+        inputs.leftAmps = leftMotorAmps.getValue();
+        inputs.rightAmps = rightMotorAmps.getValue();
+        inputs.leftTemp = leftMotorTemp.getValue();
+        inputs.rightTemp = rightMotorTemp.getValue();
+        inputs.isHomed = isHomed;
+
+        Logger.processInputs("SuperStructure/Pivot", inputs);
+
+        isHomed = inputs.isHomed;
     }
 }

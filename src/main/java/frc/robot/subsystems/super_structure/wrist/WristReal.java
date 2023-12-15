@@ -1,53 +1,43 @@
 package frc.robot.subsystems.super_structure.wrist;
 
+import org.littletonrobotics.junction.Logger;
+
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
-import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
-import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.CoastOut;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.MotionMagicDutyCycle;
-import com.ctre.phoenix6.controls.StaticBrake;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
-import edu.wpi.first.math.filter.LinearFilter;
-import frc.robot.Constants.kSuperStructure.kWrist;
 import frc.robot.Constants.kSuperStructure;
-import frc.robot.Constants.kSuperStructure.kIntake;
-import frc.robot.util.ShuffleboardApi.ShuffleEntryContainer;
+import frc.robot.Constants.kSuperStructure.kWrist;
 
 public class WristReal implements Wrist {
 
-    private final TalonFX wristMotor, intakeMotor;
+    private final TalonFX motor;
 
-    private final StatusSignal<Double> wristMotorRots, wristMotorVelo, wristMotorAmps, wristMotorVolts;
-    private final StatusSignal<Double> intakeMotorAmps, intakeMotorVolts;
+    private final StatusSignal<Double> motorRots, motorVelo, motorAmps, motorVolts, motorTemp;
 
-    private final LinearFilter ampWindow = LinearFilter.movingAverage(25);
-    private Double ampWindowVal = 0.0;
-
-    private Boolean isHomed = false;
-    private Double cachedWristDegrees, cachedIntakeVolts = 0.0, intakeCurrentLimit;
+    private final WristInputs inputs;
+    private boolean isHomed = false;
+    private Double setPointDegrees = kWrist.HOME_DEGREES;
 
     public WristReal(Double startingDegrees) {
-        wristMotor = new TalonFX(kWrist.MOTOR_ID, kSuperStructure.CANBUS);
-        wristMotor.getConfigurator().apply(getWristMotorConfig());
+        motor = new TalonFX(kWrist.MOTOR_ID, kSuperStructure.CANBUS);
+        motor.getConfigurator().apply(getWristMotorConfig());
 
-        wristMotorRots = wristMotor.getRotorPosition();
-        wristMotorVelo = wristMotor.getRotorVelocity();
-        wristMotorAmps = wristMotor.getStatorCurrent();
-        wristMotorVolts = wristMotor.getSupplyVoltage();
+        motorRots = motor.getRotorPosition();
+        motorVelo = motor.getRotorVelocity();
+        motorAmps = motor.getStatorCurrent();
+        motorVolts = motor.getSupplyVoltage();
+        motorTemp = motor.getDeviceTemp();
 
-        wristMotor.setRotorPosition(mechDegreesToMotorRots(startingDegrees));
-        cachedWristDegrees = startingDegrees;
+        motorTemp.setUpdateFrequency(4);
 
-        intakeMotor = new TalonFX(kIntake.MOTOR_ID, kSuperStructure.CANBUS);
-        intakeMotor.getConfigurator().apply(getIntakeMotorConfig());
-
-        intakeMotorAmps = intakeMotor.getStatorCurrent();
-        intakeMotorVolts = intakeMotor.getSupplyVoltage();
+        motor.setPosition(mechDegreesToMotorRots(startingDegrees));
+        inputs = new WristInputs(startingDegrees);
     }
 
     private Double mechDegreesToMotorRots(Double mechanismDegrees) {
@@ -85,26 +75,12 @@ public class WristReal implements Wrist {
         return wristMotorCfg;
     }
 
-    /**
-     * Constructs a TalonFXConfiguration object only from values
-     * from {@link frc.robot.Constants.kIntake}
-     * 
-     * @return the TalonFXConfiguration object
-     */
-    private TalonFXConfiguration getIntakeMotorConfig() {
-        TalonFXConfiguration intakeMotorCfg = new TalonFXConfiguration();
-
-        intakeMotorCfg.MotorOutput.Inverted = kIntake.INVERTED ? InvertedValue.Clockwise_Positive
-                : InvertedValue.CounterClockwise_Positive;
-
-        return intakeMotorCfg;
-    }
-
     @Override
-    public Boolean setWristDegrees(Double degrees) {
+    public boolean setWristDegrees(Double degrees) {
         isHomed = false;
+        setPointDegrees = degrees;
         var posControlRequest = new MotionMagicDutyCycle(mechDegreesToMotorRots(degrees));
-        this.wristMotor.setControl(posControlRequest);
+        this.motor.setControl(posControlRequest);
         return Math.abs(degrees - getWristDegrees()) < kWrist.TOLERANCE;
     }
 
@@ -112,47 +88,21 @@ public class WristReal implements Wrist {
     public void manualDriveMechanism(Double percentOut) {
         isHomed = false;
         var percentControlRequest = new DutyCycleOut(percentOut);
-        this.wristMotor.setControl(percentControlRequest);
+        this.motor.setControl(percentControlRequest);
     }
 
     @Override
     public void stopMechanism() {
-        this.wristMotor.setVoltage(0.0);
+        this.motor.setVoltage(0.0);
     }
 
     @Override
     public Double getWristDegrees() {
-        return cachedWristDegrees;
+        return inputs.degrees;
     }
 
     @Override
-    public void runIntake(Double percentOut) {
-        var percentControlRequest = new DutyCycleOut(percentOut);
-        this.intakeMotor.setControl(percentControlRequest);
-    }
-
-    @Override
-    public Double getIntakeVoltage() {
-        return cachedIntakeVolts;
-    }
-
-    @Override
-    public void setIntakeCurrentLimits(Double limit) {
-        if (limit != this.intakeCurrentLimit) {
-            var cfg = new CurrentLimitsConfigs();
-            cfg.SupplyCurrentLimitEnable = true;
-            cfg.SupplyCurrentLimit = limit;
-            cfg.SupplyCurrentThreshold = limit;
-            cfg.SupplyTimeThreshold = 0.2;
-            cfg.StatorCurrentLimit = limit;
-            cfg.StatorCurrentLimitEnable = true;
-            intakeMotor.getConfigurator().apply(cfg);
-            this.intakeCurrentLimit = limit;
-        }
-    }
-
-    @Override
-    public Boolean homeMechanism(boolean force) {
+    public boolean homeMechanism(boolean force) {
         if (force) {
             isHomed = false;
         }
@@ -165,9 +115,9 @@ public class WristReal implements Wrist {
         } else {
             manualDriveMechanism(0.2);
         }
-        if (wristMotorAmps.getValue() > kWrist.CURRENT_PEAK_FOR_ZERO) {
+        if (inputs.amps > kWrist.CURRENT_PEAK_FOR_ZERO) {
             this.stopMechanism();
-            this.wristMotor.setRotorPosition(mechDegreesToMotorRots(kWrist.HOME_DEGREES + kWrist.HARD_OFFSET));
+            this.motor.setPosition(mechDegreesToMotorRots(kWrist.HOME_DEGREES + kWrist.HARD_OFFSET));
             isHomed = true;
         }
 
@@ -175,45 +125,23 @@ public class WristReal implements Wrist {
     }
 
     @Override
-    public Double getRecentCurrent() {
-        return ampWindowVal;
-    }
-
-    @Override
-    public void brake(Boolean toBrake) {
-        var motorOutputCfg = new MotorOutputConfigs();
-        motorOutputCfg.NeutralMode = toBrake ? NeutralModeValue.Brake : NeutralModeValue.Coast;
-        motorOutputCfg.Inverted = kWrist.INVERTED ? InvertedValue.Clockwise_Positive
-                : InvertedValue.CounterClockwise_Positive;
-        wristMotor.getConfigurator().apply(motorOutputCfg);
-        if (toBrake) {
-            wristMotor.setControl(new StaticBrake());
-        } else {
-            wristMotor.setControl(new CoastOut());
-        }
-    }
-
-    @Override
-    public void setupShuffleboard(ShuffleEntryContainer tab) {
-        tab.addDouble("Wrist Amps", wristMotorAmps::getValue);
-        tab.addDouble("Wrist Volts", wristMotorVolts::getValue);
-        tab.addDouble("Wrist Rots", wristMotorRots::getValue);
-        tab.addDouble("Wrist Velo", wristMotorVelo::getValue);
-        tab.addBoolean("Wrist Homed", () -> isHomed);
-
-        tab.addDouble("Intake Amps", intakeMotorAmps::getValue);
-        tab.addDouble("Intake Volts", intakeMotorVolts::getValue);
-
-    }
-
-    @Override
     public void periodic() {
-        wristMotorAmps.refresh(); wristMotorVolts.refresh();
-        wristMotorRots.refresh(); wristMotorVelo.refresh();
-        intakeMotorAmps.refresh(); intakeMotorVolts.refresh();
+        BaseStatusSignal.refreshAll(
+            motorAmps, motorVolts,
+            motorRots, motorVelo,
+            motorTemp
+        );
 
-        this.cachedWristDegrees = motorRotsToMechDegrees(wristMotorRots.getValue());
-        this.cachedIntakeVolts = intakeMotorVolts.getValue();
-        ampWindowVal = ampWindow.calculate(wristMotorAmps.getValue());
+        inputs.degrees = motorRotsToMechDegrees(motorRots.getValue());
+        inputs.degreesPerSec = motorRotsToMechDegrees(motorVelo.getValue());
+        inputs.amps = motorAmps.getValue();
+        inputs.volts = motorVolts.getValue();
+        inputs.temp = motorTemp.getValue();
+        inputs.isHomed = isHomed;
+        inputs.targetDegrees = setPointDegrees;
+
+        Logger.processInputs("SuperStructure/Wrist", inputs);
+
+        isHomed = inputs.isHomed;
     }
 }

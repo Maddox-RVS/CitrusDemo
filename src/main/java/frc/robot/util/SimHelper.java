@@ -40,7 +40,7 @@ public class SimHelper {
     //     private final Boundries upper, lower;
     //     private StateVector start_state, end_state;
     //     private Double start_time;
-    //     private Boolean has_setpoint;
+    //     private boolean has_setpoint;
 
     //     public SetPoint(Double maxVelocity, Double maxAcceleration, Double maxJerk) {
     //         this.upper = new Boundries(maxVelocity, maxAcceleration, maxJerk);
@@ -100,7 +100,7 @@ public class SimHelper {
         private Double startPose, endPose;
         private Double startTime;
         private Double veloStartPose, velo;
-        private Boolean lastModeWasPose = true;
+        private boolean lastModeWasPose = true;
 
         public SimplePoseSim(final Double maxVelocity) {
             this.maxVelocity = maxVelocity;

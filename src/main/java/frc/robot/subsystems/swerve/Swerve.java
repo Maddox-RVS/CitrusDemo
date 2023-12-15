@@ -14,14 +14,12 @@ import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.robot.Constants.kSwerve;
-import frc.robot.util.NTpreferences;
 
 public class Swerve extends SubsystemBase {
     private final SwerveDriveOdometry swerveOdometry;
@@ -35,8 +33,6 @@ public class Swerve extends SubsystemBase {
     private final StatusSignal<Double> gyroYawSignal;
 
     public Swerve() {
-        NTpreferences.loadPreferences();
-
         gyro = new Pigeon2(Constants.kSwerve.PIGEON_ID, Constants.kSwerve.CANBUS);
         gyro.getConfigurator().apply(new Pigeon2Configuration());
         gyroSim = gyro.getSimState();
@@ -45,11 +41,17 @@ public class Swerve extends SubsystemBase {
         gyroPitchSignal = gyro.getPitch();
         gyroYawSignal = gyro.getYaw();
 
-        swerveMods = new SwerveModule[] {
-                new SwerveModule(Constants.kSwerve.Mod0.CONSTANTS),
-                new SwerveModule(Constants.kSwerve.Mod1.CONSTANTS),
-                new SwerveModule(Constants.kSwerve.Mod2.CONSTANTS),
-                new SwerveModule(Constants.kSwerve.Mod3.CONSTANTS)
+        swerveMods = Robot.isReal() ? new SwerveModule[] {
+                new SwerveModuleReal(Constants.kSwerve.Mod0.CONSTANTS),
+                new SwerveModuleReal(Constants.kSwerve.Mod1.CONSTANTS),
+                new SwerveModuleReal(Constants.kSwerve.Mod2.CONSTANTS),
+                new SwerveModuleReal(Constants.kSwerve.Mod3.CONSTANTS)
+        } : 
+        new SwerveModule[] {
+                new SwerveModuleSim(Constants.kSwerve.Mod0.CONSTANTS),
+                new SwerveModuleSim(Constants.kSwerve.Mod1.CONSTANTS),
+                new SwerveModuleSim(Constants.kSwerve.Mod2.CONSTANTS),
+                new SwerveModuleSim(Constants.kSwerve.Mod3.CONSTANTS)
         };
 
         swerveOdometry = new SwerveDriveOdometry(
@@ -76,7 +78,7 @@ public class Swerve extends SubsystemBase {
         SwerveDriveKinematics.desaturateWheelSpeeds(mSwerveModuleStates, Constants.kSwerve.MAX_SPEED);
 
         for (SwerveModule module : swerveMods) {
-            module.setDesiredState(mSwerveModuleStates[module.moduleNumber], isOpenLoop);
+            module.setDesiredState(mSwerveModuleStates[module.getModuleNumber()], isOpenLoop);
         }
     }
 
@@ -107,7 +109,7 @@ public class Swerve extends SubsystemBase {
         SwerveDriveKinematics.desaturateWheelSpeeds(mSwerveModuleStates, Constants.kSwerve.MAX_SPEED);
 
         for (SwerveModule module : swerveMods) {
-            module.setDesiredState(mSwerveModuleStates[module.moduleNumber], isOpenLoop);
+            module.setDesiredState(mSwerveModuleStates[module.getModuleNumber()], isOpenLoop);
         }
     }
 
@@ -147,7 +149,7 @@ public class Swerve extends SubsystemBase {
     public SwerveModulePosition[] getModulePositions() {
         SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
         for (SwerveModule module : swerveMods) {
-            modulePositions[module.moduleNumber] = module.getPosition();
+            modulePositions[module.getModuleNumber()] = module.getCurrentPosition();
         }
         return modulePositions;
     }
@@ -156,7 +158,7 @@ public class Swerve extends SubsystemBase {
         SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, Constants.kSwerve.MAX_SPEED);
 
         for (SwerveModule module : swerveMods) {
-            module.setDesiredState(desiredStates[module.moduleNumber], false);
+            module.setDesiredState(desiredStates[module.getModuleNumber()], false);
         }
     }
 
@@ -167,7 +169,7 @@ public class Swerve extends SubsystemBase {
     public SwerveModuleState[] getModuleStates() {
         SwerveModuleState[] states = new SwerveModuleState[4];
         for (SwerveModule module : swerveMods) {
-            states[module.moduleNumber] = module.getState();
+            states[module.getModuleNumber()] = module.getCurrentState();
         }
         return states;
     }
@@ -207,14 +209,11 @@ public class Swerve extends SubsystemBase {
 
     @Override
     public void simulationPeriodic() {
+
         ChassisSpeeds currentSpeeds = kSwerve.SWERVE_KINEMATICS.toChassisSpeeds(getModuleStates());
 
         gyroSim.setRawYaw(
                 getYawRot().getDegrees() + (Units.radiansToDegrees(currentSpeeds.omegaRadiansPerSecond) * 0.02));
-
-        for (var module : swerveMods) {
-            module.simulationPeriodic();
-        }
     }
 
     public static double scope0To360(double angle) {

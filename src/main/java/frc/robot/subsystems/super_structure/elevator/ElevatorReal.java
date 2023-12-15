@@ -1,19 +1,18 @@
 package frc.robot.subsystems.super_structure.elevator;
 
+import org.littletonrobotics.junction.Logger;
+
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
-import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.CoastOut;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicDutyCycle;
-import com.ctre.phoenix6.controls.StaticBrake;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.ReverseLimitValue;
 
-import edu.wpi.first.math.filter.LinearFilter;
 import frc.robot.Constants.kSuperStructure;
 import frc.robot.Constants.kSuperStructure.kElevator;
 import frc.robot.util.ShuffleboardApi.ShuffleEntryContainer;
@@ -23,13 +22,14 @@ public class ElevatorReal implements Elevator {
     private final TalonFX leaderMotor;
     /** Left */
     private final TalonFX followerMotor;
-    private final StatusSignal<Double> motorRots, motorVelo, motorAmps, motorVolts;
 
-    private final LinearFilter ampWindow = LinearFilter.movingAverage(25);
-    private Double ampWindowVal = 0.0;
+    private final StatusSignal<Double> motorRots, motorVelo, motorVolts;
+    private final StatusSignal<Double> leftMotorAmps, rightMotorAmps, leftMotorTemp, rightMotorTemp;
+    private final StatusSignal<ReverseLimitValue> reverseLimitSwitch;
 
-    private Boolean isHomed = false;
-    private Double cachedElevatorMeters;
+    private final ElevatorInputs inputs;
+
+    private boolean isHomed = false;
 
     private Double mechMetersToMotorRots(Double meters) {
         return ((meters - kElevator.HOME_METERS)
@@ -55,11 +55,17 @@ public class ElevatorReal implements Elevator {
 
         motorRots = leaderMotor.getRotorPosition();
         motorVelo = leaderMotor.getRotorVelocity();
-        motorAmps = leaderMotor.getStatorCurrent();
         motorVolts = leaderMotor.getSupplyVoltage();
+        leftMotorAmps = followerMotor.getStatorCurrent();
+        rightMotorAmps = leaderMotor.getStatorCurrent();
+        leftMotorTemp = followerMotor.getDeviceTemp();
+        rightMotorTemp = leaderMotor.getDeviceTemp();
+        rightMotorTemp.setUpdateFrequency(4);
+        leftMotorTemp.setUpdateFrequency(4);
+        reverseLimitSwitch = leaderMotor.getReverseLimit();
 
-        leaderMotor.setRotorPosition(mechMetersToMotorRots(startingMeters));
-        cachedElevatorMeters = startingMeters;
+        leaderMotor.setPosition(mechMetersToMotorRots(startingMeters));
+        inputs = new ElevatorInputs(startingMeters);
     }
 
     private TalonFXConfiguration getMotorConfiguration() {
@@ -86,7 +92,7 @@ public class ElevatorReal implements Elevator {
     }
 
     @Override
-    public Boolean setElevatorMeters(Double meters) {
+    public boolean setElevatorMeters(Double meters) {
         this.isHomed = false;
         var posControlRequest = new MotionMagicDutyCycle(mechMetersToMotorRots(meters));
         this.leaderMotor.setControl(posControlRequest);
@@ -95,12 +101,12 @@ public class ElevatorReal implements Elevator {
 
     @Override
     public Double getElevatorMeters() {
-        return cachedElevatorMeters;
+        return inputs.meters;
     }
 
     @Override
     public void manualDriveMechanism(Double percentOut) {
-        var percentControlRequest = new DutyCycleOut(percentOut, true, false);
+        var percentControlRequest = new DutyCycleOut(percentOut, true, false, false, false);
         this.leaderMotor.setControl(percentControlRequest);
         this.isHomed = false;
     }
@@ -111,12 +117,12 @@ public class ElevatorReal implements Elevator {
     }
 
     @Override
-    public Boolean isLimitSwitchHit() {
-        return leaderMotor.getReverseLimit().getValue() == ReverseLimitValue.ClosedToGround;
+    public boolean isLimitSwitchHit() {
+        return inputs.isLimitSwitchHit;
     }
 
     @Override
-    public Boolean homeMechanism(boolean force) {
+    public boolean homeMechanism(boolean force) {
         if (force) {
             isHomed = false;
         }
@@ -126,46 +132,42 @@ public class ElevatorReal implements Elevator {
         this.manualDriveMechanism(-0.2);
         if (this.isLimitSwitchHit()) {
             this.stopMechanism();
-            this.leaderMotor.setRotorPosition(0.0);
+            this.leaderMotor.setPosition(0.0);
             this.isHomed = true;
         }
         return this.isLimitSwitchHit();
     }
 
     @Override
-    public Double getRecentCurrent() {
-        return ampWindowVal;
-    }
-
-    @Override
-    public void brake(Boolean toBrake) {
-        var motorOutputCfg = new MotorOutputConfigs();
-        motorOutputCfg.NeutralMode = toBrake ? NeutralModeValue.Brake : NeutralModeValue.Coast;
-        motorOutputCfg.Inverted = kElevator.INVERTED ? InvertedValue.Clockwise_Positive
-                : InvertedValue.CounterClockwise_Positive;
-        leaderMotor.getConfigurator().apply(motorOutputCfg);
-        if (toBrake) {
-            leaderMotor.setControl(new StaticBrake());
-        } else {
-            leaderMotor.setControl(new CoastOut());
-        }
-    }
-
-    @Override
     public void setupShuffleboard(ShuffleEntryContainer tab) {
-        tab.addDouble("Elevator Motor Rots", motorRots::getValue);
-        tab.addDouble("Elevator Motor Velo", motorVelo::getValue);
-        tab.addDouble("Elevator Motor Amps", motorAmps::getValue);
-        tab.addDouble("Elevator Motor Volts", motorVolts::getValue);
-        tab.addBoolean("Elevator LimitSwitch", this::isLimitSwitchHit);
+        // tab.addDouble("Elevator Motor Rots", motorRots::getValue);
+        // tab.addDouble("Elevator Motor Velo", motorVelo::getValue);
+        // tab.addDouble("Elevator Motor Amps", motorAmps::getValue);
+        // tab.addDouble("Elevator Motor Volts", motorVolts::getValue);
+        // tab.addBoolean("Elevator LimitSwitch", this::isLimitSwitchHit);
     }
 
     @Override
     public void periodic() {
-        motorRots.refresh(); motorVelo.refresh();
-        motorAmps.refresh(); motorVolts.refresh();
+        BaseStatusSignal.refreshAll(
+            motorRots, motorVelo,
+            motorVolts, reverseLimitSwitch,
+            leftMotorAmps, rightMotorAmps,
+            leftMotorTemp, rightMotorTemp
+        );
 
-        cachedElevatorMeters = motorRotsToMechMeters(motorRots.getValue());
-        ampWindowVal = ampWindow.calculate(motorAmps.getValue());
+        inputs.meters = motorRotsToMechMeters(motorRots.getValue());
+        inputs.metersPerSec = motorRotsToMechMeters(motorVelo.getValue());
+        inputs.isLimitSwitchHit = reverseLimitSwitch.getValue() == ReverseLimitValue.ClosedToGround;
+        inputs.volts = motorVolts.getValue();
+        inputs.leftAmps = leftMotorAmps.getValue();
+        inputs.rightAmps = rightMotorAmps.getValue();
+        inputs.leftTemp = leftMotorTemp.getValue();
+        inputs.rightTemp = rightMotorTemp.getValue();
+        inputs.isHomed = isHomed;
+
+        Logger.processInputs("SuperStructure/Elevator", inputs);
+
+        isHomed = inputs.isHomed;
     }
 }

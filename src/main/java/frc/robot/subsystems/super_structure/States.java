@@ -3,55 +3,54 @@ package frc.robot.subsystems.super_structure;
 import frc.robot.Constants.kSuperStructure.*;
 import frc.robot.GamepieceMode;
 
-
 public enum States {
-    HOME(kPivot.HOME_DEGREES, kWrist.HOME_DEGREES, kElevator.HOME_METERS, IntakeRequest.IDLE, IntakeBehavior.RUN_WHOLE_TIME, true),
-    STOW(kPivot.HOME_DEGREES, kWrist.HOME_DEGREES-7.0, kElevator.HOME_METERS, IntakeRequest.HOLD_TIGHT, IntakeBehavior.RUN_ON_START, true),
-    STANDBY(kPivot.SCORE_DEGREES, kWrist.HOME_DEGREES, kElevator.HOME_METERS, IntakeRequest.HOLD, IntakeBehavior.RUN_WHOLE_TIME, true),
-    PLACE_HIGH(kPivot.SCORE_DEGREES, -19.0, kElevator.MAX_METERS, IntakeRequest.OUTTAKING, IntakeBehavior.RUN_ON_TRANSITION, true),
-    PLACE_MID(kPivot.SCORE_DEGREES, -26.0, 1.04, IntakeRequest.OUTTAKING, IntakeBehavior.RUN_ON_TRANSITION, true),
-    PLACE_LOW_BACK(60.0, kWrist.HOME_DEGREES-7.0, kElevator.HOME_METERS, IntakeRequest.OUTTAKING, IntakeBehavior.RUN_ON_TRANSITION, true, 1.3),
-    PLACE_LOW_FRONT(13.0, 15.0, kElevator.HOME_METERS, IntakeRequest.SPIT, IntakeBehavior.RUN_ON_TRANSITION, true, 1.3),
-    PICKUP_GROUND(kPivot.HOME_DEGREES, 13.0, kElevator.HOME_METERS, IntakeRequest.INTAKING, IntakeBehavior.RUN_WHOLE_TIME, false, 1.3),
-    PICKUP_STATION(63.1, -63.0, 1.08, IntakeRequest.INTAKING, IntakeBehavior.RUN_ON_REACH, false),
-    PICKUP_CHUTE(48.0, -10.0, kElevator.HOME_METERS, IntakeRequest.INTAKING, IntakeBehavior.RUN_WHOLE_TIME, false),
-    TREBUCHET(85.0, 90.0, kElevator.HOME_METERS, IntakeRequest.OUTTAKING, IntakeBehavior.RUN_ON_REACH, true, 15.0);
+    HOME(kPivot.HOME_DEGREES, kWrist.HOME_DEGREES, kElevator.HOME_METERS, EERequest.IDLE, EEBehavior.RUN_WHOLE_TIME, true),
+    STOW(kPivot.HOME_DEGREES, kWrist.HOME_DEGREES-7.0, kElevator.HOME_METERS, EERequest.HOLD_TIGHT, EEBehavior.RUN_ON_START, true),
+    STANDBY(kPivot.SCORE_DEGREES, kWrist.HOME_DEGREES, kElevator.HOME_METERS, EERequest.HOLD, EEBehavior.RUN_WHOLE_TIME, true),
+    PLACE_HIGH(kPivot.SCORE_DEGREES, -19.0, kElevator.MAX_METERS, EERequest.OUTTAKING, EEBehavior.RUN_ON_TRANSITION, true),
+    PLACE_MID(kPivot.SCORE_DEGREES, -26.0, 1.04, EERequest.OUTTAKING, EEBehavior.RUN_ON_TRANSITION, true),
+    PLACE_LOW_BACK(60.0, kWrist.HOME_DEGREES-7.0, kElevator.HOME_METERS, EERequest.OUTTAKING, EEBehavior.RUN_ON_TRANSITION, true, 1.3),
+    PLACE_LOW_FRONT(13.0, 15.0, kElevator.HOME_METERS, EERequest.SPIT, EEBehavior.RUN_ON_TRANSITION, true, 1.3),
+    PICKUP_GROUND(kPivot.HOME_DEGREES, 13.0, kElevator.HOME_METERS, EERequest.INTAKING, EEBehavior.RUN_WHOLE_TIME, false, 1.3),
+    PICKUP_STATION(63.1, -63.0, 1.08, EERequest.INTAKING, EEBehavior.RUN_ON_REACH, false),
+    PICKUP_CHUTE(48.0, -10.0, kElevator.HOME_METERS, EERequest.INTAKING, EEBehavior.RUN_WHOLE_TIME, false),
+    TREBUCHET(85.0, 90.0, kElevator.HOME_METERS, EERequest.OUTTAKING, EEBehavior.RUN_ON_REACH, true, 15.0);
 
     public final Double pivotDegrees;
     public final Double wristDegrees;
     public final Double elevatorMeters;
-    public final IntakeRequest intakeRequest;
-    public final IntakeBehavior intakeBehavior;
-    public final Boolean useHeldGamepiece;
+    public final EERequest eeRequest;
+    public final EEBehavior eeBehavior;
+    public final boolean useHeldGamepiece;
     public final Double toleranceMult;
 
     States(
             Double pivotDegrees, Double wristDegrees, Double elevatorMeters,
-            IntakeRequest intakeRequest, IntakeBehavior intakeBehavior,
-            Boolean useHeldGamepiece) {
+            EERequest eeRequest, EEBehavior eeBehavior,
+            boolean useHeldGamepiece) {
         this.pivotDegrees = pivotDegrees;
         this.wristDegrees = wristDegrees;
         this.elevatorMeters = elevatorMeters;
-        this.intakeRequest = intakeRequest;
-        this.intakeBehavior = intakeBehavior;
+        this.eeRequest = eeRequest;
+        this.eeBehavior = eeBehavior;
         this.useHeldGamepiece = useHeldGamepiece;
         this.toleranceMult = 1.0;
     }
 
     States(
             Double pivotDegrees, Double wristDegrees, Double elevatorMeters,
-            IntakeRequest intakeRequest, IntakeBehavior intakeBehavior, Boolean useHeldGamepiece,
+            EERequest eeRequest, EEBehavior eeBehavior, boolean useHeldGamepiece,
             Double toleranceMult) {
         this.pivotDegrees = pivotDegrees;
         this.wristDegrees = wristDegrees;
         this.elevatorMeters = elevatorMeters;
-        this.intakeRequest = intakeRequest;
-        this.intakeBehavior = intakeBehavior;
+        this.eeRequest = eeRequest;
+        this.eeBehavior = eeBehavior;
         this.useHeldGamepiece = useHeldGamepiece;
         this.toleranceMult = toleranceMult;
     }
 
-    public enum IntakeRequest {
+    public enum EERequest {
         IDLE(0.0, 0.0, 0.0, false),
         INTAKING(12.0, -12.0, 120.0, false),
         OUTTAKING(-12.0, 12.0, 120.0, true),
@@ -62,7 +61,7 @@ public enum States {
         public final double voltageCone, voltageCube, maxCurrent;
         public final boolean expelling;
 
-        IntakeRequest(double voltageCone, double voltageCube, double maxCurrent, boolean expelling) {
+        EERequest(double voltageCone, double voltageCube, double maxCurrent, boolean expelling) {
             this.voltageCone = voltageCone;
             this.voltageCube = voltageCube;
             this.maxCurrent = maxCurrent;
@@ -82,8 +81,8 @@ public enum States {
         }
     }
 
-    public enum IntakeBehavior {
-        /** The entire time the state is active the intake will run the request */
+    public enum EEBehavior {
+        /** The entire time the state is active the end-effector will run the request */
         RUN_WHOLE_TIME,
         /** Runs at the start of the state until its setpoint is reached */
         RUN_ON_START,
@@ -100,35 +99,35 @@ public enum States {
         public final Double wristDegrees;
         public final Double pivotDegrees;
         public final Double elevatorMeters;
-        public final Double intakeVoltage;
+        public final Double endEffectorVoltage;
 
         public SuperStructurePosition(
                 Double wristDegrees, Double pivotDegrees,
-                Double elevatorMeters, Double intakeVoltage) {
+                Double elevatorMeters, Double endEffectorVoltage) {
             this.wristDegrees = wristDegrees;
             this.pivotDegrees = pivotDegrees;
             this.elevatorMeters = elevatorMeters;
-            this.intakeVoltage = intakeVoltage;
+            this.endEffectorVoltage = endEffectorVoltage;
         }
 
-        /** Does not check intake */
+        /** Does not check end-effector */
         public boolean reachedState(SuperStructurePosition pose, Double toleranceMult) {
             return Math.abs(pose.pivotDegrees - pivotDegrees) < (kPivot.TOLERANCE * toleranceMult) &&
                     Math.abs(pose.wristDegrees - wristDegrees) < (kWrist.TOLERANCE * toleranceMult) &&
                     Math.abs(pose.elevatorMeters - elevatorMeters) < (kElevator.TOLERANCE * toleranceMult);
         }
 
-        /** Does not set intake */
+        /** Does not set end-effector */
         public static SuperStructurePosition fromState(States state) {
             return new SuperStructurePosition(
                     state.wristDegrees, state.pivotDegrees,
                     state.elevatorMeters, 0.0);
         }
 
-        public static SuperStructurePosition fromState(States state, Double intake) {
+        public static SuperStructurePosition fromState(States state, Double endEffector) {
             return new SuperStructurePosition(
                     state.wristDegrees, state.pivotDegrees,
-                    state.elevatorMeters, intake);
+                    state.elevatorMeters, endEffector);
         }
     }
 }

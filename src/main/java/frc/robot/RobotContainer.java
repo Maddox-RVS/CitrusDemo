@@ -3,9 +3,8 @@ package frc.robot;
 import frc.robot.commands.superstructure.OperatorPrefs.PickupMode;
 import frc.robot.commands.superstructure.OperatorPrefs.ScoreLevel;
 import frc.robot.commands.superstructure.StateManager.CmdTransitionState;
-import frc.robot.Constants.kSwerve;
-import frc.robot.commands.superstructure.OperatorPrefs;
 import frc.robot.commands.swerve.TeleopSwerve;
+import frc.robot.Constants.kSwerve;
 import frc.robot.commands.superstructure.StateManager;
 import frc.robot.subsystems.super_structure.States;
 import frc.robot.subsystems.super_structure.SuperStructure;
@@ -134,10 +133,5 @@ public class RobotContainer {
             var held = GamepieceMode.getHeldPiece();
             return held == null ? "NONE" : held.toString();
         }).withSize(2, 1);
-
-        driverTab.addBoolean("NEED TO HOME", () -> OperatorPrefs.NEED_HOME)
-                .withPosition(3, 3)
-                .withSize(2, 1)
-                .withProperties(Map.of("colorWhenTrue", "Red", "colorWhenFalse", "Black"));
     }
 }

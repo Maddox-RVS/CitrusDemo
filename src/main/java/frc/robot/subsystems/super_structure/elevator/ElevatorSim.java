@@ -14,7 +14,7 @@ public class ElevatorSim implements Elevator {
     }
 
     @Override
-    public Boolean setElevatorMeters(Double meters) {
+    public boolean setElevatorMeters(Double meters) {
         elevatorMeters.setTargetPosition(meters);
         return Math.abs(elevatorMeters.getPose() - meters) < 0.1;
     }
@@ -35,18 +35,13 @@ public class ElevatorSim implements Elevator {
     }
 
     @Override
-    public Boolean isLimitSwitchHit() {
+    public boolean isLimitSwitchHit() {
         return elevatorMeters.getPose() < kElevator.HOME_METERS + 0.05;
     }
 
     @Override
-    public Boolean homeMechanism(boolean force) {
+    public boolean homeMechanism(boolean force) {
         elevatorMeters.setTargetPosition(kElevator.HOME_METERS);
         return isLimitSwitchHit();
-    }
-
-    @Override
-    public Double getRecentCurrent() {
-        return 0.0;
     }
 }

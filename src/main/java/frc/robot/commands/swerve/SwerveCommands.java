@@ -5,7 +5,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
-import frc.robot.RobotContainer;
 import frc.robot.subsystems.swerve.Swerve;
 
 public class SwerveCommands {
@@ -23,13 +22,5 @@ public class SwerveCommands {
 
     public static Command commandStopDrives(final Swerve swerve) {
         return swerve.runOnce(() -> swerve.setModuleStates(new ChassisSpeeds())).withName("commandStopDrives");
-    }
-
-    public static Command commandFlipGyro() {
-        return RobotContainer.swerve.runOnce(
-            () -> RobotContainer.swerve.setYaw(
-                RobotContainer.swerve.getYawRot().rotateBy(Rotation2d.fromDegrees(180)).getDegrees()
-            )
-        ).withName("commandFlipGyro");
     }
 }

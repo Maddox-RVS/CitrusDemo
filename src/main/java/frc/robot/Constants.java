@@ -3,7 +3,7 @@ package frc.robot;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.SensorDirectionValue;
-import com.pathplanner.lib.auto.PIDConstants;
+import com.pathplanner.lib.util.PIDConstants;
 
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -22,7 +22,7 @@ public final class Constants {
 
     public static class kSuperStructure {
         public static final int BRAKE_SWITCH_PIN = 16;
-        public static final String CANBUS = "SuperstructureBus";
+        public static final String CANBUS = "";
 
         public static final class kWrist {
             public static final int MOTOR_ID = 12;
@@ -68,7 +68,7 @@ public final class Constants {
             public static final double TOLERANCE = 0.5;
         }
 
-        public static final class kIntake {
+        public static final class kEndEffector {
             public static final int MOTOR_ID = 11;
 
             public static final boolean INVERTED = true;
@@ -223,7 +223,7 @@ public final class Constants {
         public static final SensorDirectionValue CANCODER_INVERT = SensorDirectionValue.CounterClockwise_Positive;
 
         /* Angle Motor PID Values */
-        public static final double ANGLE_KP = 4.0;
+        public static final double ANGLE_KP = 9.0;
         public static final double ANGLE_KI = 0.0;
         public static final double ANGLE_KD = 0.0;
 
@@ -259,9 +259,10 @@ public final class Constants {
             public static final int DRIVE_MOTOR_ID = 1;
             public static final int ANGLE_MOTOR_ID = 2;
             public static final int CANCODER_ID = 21;
+            public static final double ROTATION_OFFSET = 0.21875;
             public static final Translation2d CHASSIS_OFFSET = new Translation2d(-WHEEL_BASE / 2.0, TRACK_WIDTH / 2.0);
             public static final SwerveModuleConstants CONSTANTS = new SwerveModuleConstants(MODULE, DRIVE_MOTOR_ID,
-                    ANGLE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET);
+                    ANGLE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET, ROTATION_OFFSET);
         }
 
         public static final class Mod1 {
@@ -269,9 +270,10 @@ public final class Constants {
             public static final int DRIVE_MOTOR_ID = 3;
             public static final int ANLGE_MOTOR_ID = 4;
             public static final int CANCODER_ID = 22;
+            public static final double ROTATION_OFFSET = 0.3278805;
             public static final Translation2d CHASSIS_OFFSET = new Translation2d(WHEEL_BASE / 2.0, TRACK_WIDTH / 2.0);
             public static final SwerveModuleConstants CONSTANTS = new SwerveModuleConstants(MODULE, DRIVE_MOTOR_ID,
-                    ANLGE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET);
+                    ANLGE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET, ROTATION_OFFSET);
         }
 
         public static final class Mod2 {
@@ -279,9 +281,10 @@ public final class Constants {
             public static final int DRIVE_MOTOR_ID = 5;
             public static final int ANGLE_MOTOR_ID = 6;
             public static final int CANCODER_ID = 23;
+            public static final double ROTATION_OFFSET = 0.6540972;
             public static final Translation2d CHASSIS_OFFSET = new Translation2d(WHEEL_BASE / 2.0, -TRACK_WIDTH / 2.0);
             public static final SwerveModuleConstants CONSTANTS = new SwerveModuleConstants(MODULE, DRIVE_MOTOR_ID,
-                    ANGLE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET);
+                    ANGLE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET, ROTATION_OFFSET);
         }
 
         public static final class Mod3 {
@@ -289,9 +292,10 @@ public final class Constants {
             public static final int DRIVE_MOTOR_ID = 7;
             public static final int ANGLE_MOTOR_ID = 8;
             public static final int CANCODER_ID = 24;
+            public static final double ROTATION_OFFSET = 0.5776361;
             public static final Translation2d CHASSIS_OFFSET = new Translation2d(-WHEEL_BASE / 2.0, -TRACK_WIDTH / 2.0);
             public static final SwerveModuleConstants CONSTANTS = new SwerveModuleConstants(MODULE, DRIVE_MOTOR_ID,
-                    ANGLE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET);
+                    ANGLE_MOTOR_ID, CANCODER_ID, CHASSIS_OFFSET, ROTATION_OFFSET);
         }
     }
 }

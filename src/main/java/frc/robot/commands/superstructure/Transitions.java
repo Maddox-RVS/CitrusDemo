@@ -38,7 +38,7 @@ public class Transitions {
             //do a force home on start incase its rescheduled it will try homing again
             () -> data.superStructure.home(true),
             () -> data.superStructure.home(false),
-            (bool) -> OperatorPrefs.NEED_HOME = false,
+            (bool) -> {},
             () -> data.superStructure.isHomed(),
             data.superStructure
         //then run a normal stow to hold the mechanism in place
@@ -47,22 +47,9 @@ public class Transitions {
 
     public static Command stowTransition(TransitionData data) {
         return new Command() {
-            private Integer cycles = 0;;
-
             @Override
             public void execute() {
-                if (data.superStructure.setSetpoint(SuperStructurePosition.fromState(data.to))) {
-                    cycles++;
-                }
-                if (cycles > 50) {
-                    var ampInfo = data.superStructure.getComponentAmps();
-                    for (var compAmp : ampInfo) {
-                        if (compAmp > 20) {
-                            OperatorPrefs.NEED_HOME = true;
-                            return;
-                        }
-                    }
-                }
+                data.superStructure.setSetpoint(SuperStructurePosition.fromState(data.to));
             }
 
             @Override

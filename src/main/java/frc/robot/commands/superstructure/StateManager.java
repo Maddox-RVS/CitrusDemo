@@ -5,14 +5,13 @@ import java.util.Map;
 import java.util.function.Function;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.GamepieceMode;
 import frc.robot.commands.superstructure.Transitions.TransitionData;
 import frc.robot.subsystems.super_structure.States;
 import frc.robot.subsystems.super_structure.SuperStructure;
-import frc.robot.subsystems.super_structure.States.IntakeBehavior;
-import frc.robot.subsystems.super_structure.States.IntakeRequest;
+import frc.robot.subsystems.super_structure.States.EEBehavior;
+import frc.robot.subsystems.super_structure.States.EERequest;
 
 /**
  * Acts as a stateful interface for the {@link SuperStructure}.
@@ -29,12 +28,13 @@ public class StateManager {
     private static States lastState;
 
     /**
-     * Runs the given command when transitioning to the given state from the included states
+     * Runs the given command when transitioning to the given state from the
+     * included states
      * 
-     * @param state The state to transition to
-     * @param cmd   The command to run when transitioning
+     * @param state   The state to transition to
+     * @param cmd     The command to run when transitioning
      * @param include The states to include in the transition
-     *              WARNING: be careful of the order you call the methods in
+     *                WARNING: be careful of the order you call the methods in
      */
     private static void toStates(States state, Function<TransitionData, Command> cmd, States... include) {
         HashMap<States, Function<TransitionData, Command>> map = new HashMap<>();
@@ -59,10 +59,10 @@ public class StateManager {
     /**
      * Sets the transition from all states to the given state to the given command
      * 
-     * @param state The state to transition to
-     * @param cmd   The command to run when transitioning
+     * @param state   The state to transition to
+     * @param cmd     The command to run when transitioning
      * @param include The states to include in the transition
-     *              WARNING: be careful of the order you call the methods in
+     *                WARNING: be careful of the order you call the methods in
      */
     private static void fromStates(States state, Function<TransitionData, Command> cmd, States... include) {
         for (var iState : include) {
@@ -79,7 +79,8 @@ public class StateManager {
     }
 
     /**
-     * Sets the transition from the included states to the given state to the given command
+     * Sets the transition from the included states to the given state to the given
+     * command
      * 
      * @param state The state to transition to
      * @param cmd   The command to run when transitioning
@@ -101,7 +102,8 @@ public class StateManager {
         fromAllStates(States.HOME, Transitions::homeTransition);
         fromAllStates(States.STOW, Transitions::stowTransition);
         fromAllStates(States.PLACE_HIGH, Transitions::placeHighTransition);
-        fromStates(States.PLACE_LOW_FRONT, Transitions::placeLowAntiChopTransition, States.STOW, States.HOME, States.PICKUP_GROUND);
+        fromStates(States.PLACE_LOW_FRONT, Transitions::placeLowAntiChopTransition, States.STOW, States.HOME,
+                States.PICKUP_GROUND);
     }
 
     /**
@@ -118,12 +120,14 @@ public class StateManager {
     }
 
     /**
-     * A function to solve for the wanted voltage of the intake
-     * @param req The intake request
-     * @param useHeld Whether or not to use the held gamepiece variable or desired gamepiece variable
-     * @return The wanted voltage of the intake
+     * A function to solve for the wanted voltage of the end-effector
+     * 
+     * @param req     The end-effector request
+     * @param useHeld Whether or not to use the held gamepiece variable or desired
+     *                gamepiece variable
+     * @return The wanted voltage of the end-effector
      */
-    private static Double intakeVoltage(IntakeRequest req, Boolean useHeld) {
+    private static Double endEffectorVoltage(EERequest req, boolean useHeld) {
         if (useHeld) {
             var held = GamepieceMode.getHeldPiece();
             if (held == null) {
@@ -132,29 +136,30 @@ public class StateManager {
             return req.getVoltage(held);
         } else {
             return req.getVoltage(
-                GamepieceMode.getDesiredPiece()
-            );
+                    GamepieceMode.getDesiredPiece());
         }
     }
 
     /**
-     * A function to solve for the wanted voltage of the intake
+     * A function to solve for the wanted voltage of the end-effector
+     * 
      * @param to The state to transition to
-     * @return The wanted voltage of the intake
+     * @return The wanted voltage of the end-effector
      */
-    private static Double intakeVoltage(States to) {
-        return intakeVoltage(to.intakeRequest, to.useHeldGamepiece);
+    private static Double endEffectorVoltage(States to) {
+        return endEffectorVoltage(to.eeRequest, to.useHeldGamepiece);
     }
 
     /**
-     * A Complex Command that handles calling state transitions and handling the intake logic
+     * A Complex Command that handles calling state transitions and handling the
+     * end-effector logic
      */
-    public static class CmdTransitionState extends CommandBase {
+    public static class CmdTransitionState extends Command {
         private final SuperStructure superStructure;
         private final States to;
         private States from;
         private Command innerCmd;
-        private Boolean canFinish = false;
+        private boolean canFinish = false;
 
         /**
          * Can only be set in initialize, will skip x many cycles,
@@ -163,10 +168,10 @@ public class StateManager {
         private Integer deadCycles = 0;
 
         // inner cmd tracking
-        private Boolean innerInit = false;
-        private Boolean innerFinish = false;
+        private boolean innerInit = false;
+        private boolean innerFinish = false;
 
-        private Boolean reachedSetpoint;
+        private boolean reachedSetpoint;
 
         public CmdTransitionState(final SuperStructure superStructure, final States to) {
             this.superStructure = superStructure;
@@ -183,11 +188,12 @@ public class StateManager {
             this.innerFinish = false;
             this.reachedSetpoint = false;
             this.deadCycles = 0;
-            if (from == null) return;
-            if (from.intakeBehavior == IntakeBehavior.RUN_ON_TRANSITION
-                    && to.intakeBehavior != IntakeBehavior.RUN_ON_TRANSITION) {
-                superStructure.runEndEffector(intakeVoltage(from), from.intakeRequest.getCurrentLimit());
-                if (from.intakeRequest.expelling) {
+            if (from == null)
+                return;
+            if (from.eeBehavior == EEBehavior.RUN_ON_TRANSITION
+                    && to.eeBehavior != EEBehavior.RUN_ON_TRANSITION) {
+                superStructure.runEndEffector(endEffectorVoltage(from), from.eeRequest.getCurrentLimit());
+                if (from.eeRequest.expelling) {
                     GamepieceMode.setHeldPiece(null);
                 }
                 this.deadCycles = 15;
@@ -219,33 +225,30 @@ public class StateManager {
                 this.reachedSetpoint = true;
             }
 
-            // solving intake behavior
+            // solving end-effector behavior
             Double endEffectorVolts = 0.0;
             Double endEffrctorAmps = 0.0;
 
-            if (to.intakeBehavior == IntakeBehavior.RUN_ON_TRANSITION) {
+            if (to.eeBehavior == EEBehavior.RUN_ON_TRANSITION) {
                 endEffrctorAmps = 15.0;
             }
 
-            if (to.intakeBehavior == IntakeBehavior.RUN_WHOLE_TIME
-                    || (to.intakeBehavior == IntakeBehavior.RUN_ON_START && !this.reachedSetpoint)) {
-                // SmartDashboard.putString("intake run type", "START/WHOLE");
-                endEffectorVolts = intakeVoltage(to);
-                endEffrctorAmps = to.intakeRequest.maxCurrent;
+            if (to.eeBehavior == EEBehavior.RUN_WHOLE_TIME
+                    || (to.eeBehavior == EEBehavior.RUN_ON_START && !this.reachedSetpoint)) {
+                endEffectorVolts = endEffectorVoltage(to);
+                endEffrctorAmps = to.eeRequest.maxCurrent;
             }
             if (reachedSetpoint) {
-                if (to.intakeBehavior == IntakeBehavior.RUN_ON_START) {
-                    // SmartDashboard.putString("intake run type", "stop cuz not start");
+                if (to.eeBehavior == EEBehavior.RUN_ON_START) {
                     endEffectorVolts = 0.0;
-                } else if (to.intakeBehavior == IntakeBehavior.RUN_ON_REACH) {
-                    // SmartDashboard.putString("intake run type", "Run on reach");
-                    endEffectorVolts = intakeVoltage(to);
-                    endEffrctorAmps = to.intakeRequest.maxCurrent;
+                } else if (to.eeBehavior == EEBehavior.RUN_ON_REACH) {
+                    endEffectorVolts = endEffectorVoltage(to);
+                    endEffrctorAmps = to.eeRequest.maxCurrent;
                 }
             }
 
             if (endEffectorVolts == 0.0) {
-                endEffectorVolts = intakeVoltage(IntakeRequest.HOLD, to.useHeldGamepiece);
+                endEffectorVolts = endEffectorVoltage(EERequest.HOLD, to.useHeldGamepiece);
             }
 
             superStructure.runEndEffector(endEffectorVolts, endEffrctorAmps);
@@ -287,17 +290,15 @@ public class StateManager {
         return superStructure.startEnd(
                 () -> {
                     if (lastState != null) {
-                        superStructure.runEndEffector(intakeVoltage(lastState), lastState.intakeRequest.maxCurrent);
+                        superStructure.runEndEffector(endEffectorVoltage(lastState), lastState.eeRequest.maxCurrent);
                     }
                 },
                 () -> {
                     superStructure.runEndEffector(0.0, 0.0);
                     GamepieceMode.setHeldPiece(null);
                     lastState = null;
-                }
-            ).withTimeout(0.25);
+                }).withTimeout(0.25);
     }
-    
 
     public static Command setLastState(States state) {
         return Commands.runOnce(() -> lastState = States.STANDBY);

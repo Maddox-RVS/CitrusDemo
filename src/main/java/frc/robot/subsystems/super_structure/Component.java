@@ -28,11 +28,5 @@ public interface Component {
      * @param force if true, will ignore if the mechanism is already at the home position
      * @return true if the mechanism has reached home
      */
-    public Boolean homeMechanism(boolean force);
-
-    /** Returns the average current over the past .5 seconds */
-    public Double getRecentCurrent();
-
-    public default void brake(Boolean toBrake) {
-    }
+    public boolean homeMechanism(boolean force);
 }

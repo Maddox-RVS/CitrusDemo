@@ -80,7 +80,7 @@ public class ErrorHelper {
         /**
          * @return if the error belongs to the provided enum
          */
-        default public Boolean isOfEnum(Class<?> clazz) {
+        default public boolean isOfEnum(Class<?> clazz) {
             return clazz.getCanonicalName() == getEnum().getCanonicalName();
         }
 

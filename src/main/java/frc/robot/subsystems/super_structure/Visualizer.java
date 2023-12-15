@@ -72,7 +72,7 @@ public class Visualizer {
         }
 
         public void setShuffleboardTab(ShuffleTab tab) {
-                tab.addSendable("Superstructure Visualizer", mechanism);
+                tab.addSendable("SuperStructure Visualizer", mechanism);
         }
 
         public void updateCurrent(SuperStructurePosition currentForm) {
@@ -90,18 +90,18 @@ public class Visualizer {
                 wristLowerCurrent.setAngle(currentForm.wristDegrees - 15);
                 wristUpperCurrent.setAngle(currentForm.wristDegrees + 20);
 
-                var intakeVolts = currentForm.intakeVoltage;
-                Color8Bit intakeColor;
-                if (intakeVolts > 0.1) {
-                        intakeColor = new Color8Bit(0, 255, 100);
-                } else if (intakeVolts < -0.1) {
-                        intakeColor = new Color8Bit(255, 0, 100);
+                var endEffectorVolts = currentForm.endEffectorVoltage;
+                Color8Bit endEffectorColor;
+                if (endEffectorVolts > 0.1) {
+                        endEffectorColor = new Color8Bit(0, 255, 100);
+                } else if (endEffectorVolts < -0.1) {
+                        endEffectorColor = new Color8Bit(255, 0, 100);
                 } else {
-                        intakeColor = new Color8Bit(127, 127, 100);
+                        endEffectorColor = new Color8Bit(127, 127, 100);
                 }
 
-                wristLowerCurrent.setColor(intakeColor);
-                wristUpperCurrent.setColor(intakeColor);
+                wristLowerCurrent.setColor(endEffectorColor);
+                wristUpperCurrent.setColor(endEffectorColor);
         }
 
         public void updateSetpoint(SuperStructurePosition pose) {
