@@ -29,7 +29,7 @@ public class RobotContainer {
 
     public static NetworkTableEntry swerveTranslationValEntry, swerveRotationValEntry;
 
-    public static void RobotContainerInit() {
+    public RobotContainer() {
         DriverStation.silenceJoystickConnectionWarning(true);
 
         configureSoloBindings();
@@ -81,7 +81,7 @@ public class RobotContainer {
                 new StateManager.CmdTransitionState(superStructure, States.HOME));
     }
 
-    private static void configureDriverTabShuffleboard() {
+    private void configureDriverTabShuffleboard() {
         var driverTab = ShuffleboardApi.getTab("Driver");
         driverTab.addBoolean("High", () -> ScoreLevel.getCurrentLevel() == ScoreLevel.HIGH)
                 .withSize(2, 1)
